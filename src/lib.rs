@@ -77,7 +77,7 @@ impl Dockerfile {
     }
 
     pub fn comment(&mut self, comment: &str) -> &mut Self {
-        self.instructions.push(vec!["# ".to_string() + comment]);
+        self.instructions.push(vec!["\n# ".to_string() + comment]);
         self
     }
 
