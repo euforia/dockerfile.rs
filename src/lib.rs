@@ -1,3 +1,5 @@
+use std::{path::Path, fs::File, io::{self, BufRead}};
+
 // Convert vec![&str] to Vec<String>
 macro_rules! to_vec_strings {
     ($a: expr) => {
@@ -17,18 +19,35 @@ impl Dockerfile {
         }
     }
 
+    pub fn parse(filename: &Path)-> Self {
+        let file = File::open(filename).unwrap();
+        let lines = io::BufReader::new(file).lines();
+
+        let mut dockerfile = Dockerfile::new();
+
+        for raw_line in lines {
+            if let Ok(line) = raw_line{
+                if line == ""{
+                    continue;
+                }
+                let instruction:Vec<&str> = line.split(" ").collect();
+                dockerfile.instructions.push(to_vec_strings!(instruction));
+            }
+        }
+        dockerfile
+    }
+
     pub fn from(&mut self, image: &str) -> &mut Self {
         self.instructions
             .push(vec!["FROM".to_string(), image.to_string()]);
         self
     }
 
-    pub fn expose(&mut self, ports:Vec<i32>)->&mut Self {
-        let mut all = vec!["EXPOSE".to_string()];
-        let mut port_strs: Vec<String> = ports.iter().map(|v|{v.to_string()}).collect();
-        all.append(&mut port_strs);
+    pub fn expose(&mut self, ports:Vec<&str>)->&mut Self {
+        let mut all = vec!["EXPOSE"];
+        all.append(&mut ports.to_vec());
 
-        self.instructions.push(all);
+        self.instructions.push(to_vec_strings!(all));
         self
     }
 
@@ -105,7 +124,19 @@ impl Dockerfile {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
+
+    #[test]
+    fn test_dockerfile_parse() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("test-Dockerfile");
+
+        let dockerfile =Dockerfile::parse(d.as_path());
+        println!("{:?}", dockerfile.instructions);
+        assert!(dockerfile.instructions.len()==10);
+    }
 
     #[test]
     fn test_dockerfile() {
@@ -127,7 +158,7 @@ mod tests {
 
         df.comment("Runtime image")
             .from("debian:buster-slim")
-            .expose(vec![9200,9300])
+            .expose(vec!["9200","9300/tcp"])
             .arg("APP_NAME=APP_NAME")
             .copy(&[
                 "--from=0",
