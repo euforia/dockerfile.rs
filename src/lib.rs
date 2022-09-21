@@ -30,6 +30,8 @@ impl Dockerfile {
                 if line == ""{
                     continue;
                 }
+
+                // We assume the dockerfile is syntactically good
                 let instruction:Vec<&str> = line.split(" ").collect();
                 dockerfile.instructions.push(to_vec_strings!(instruction));
             }
