@@ -23,6 +23,15 @@ impl Dockerfile {
         self
     }
 
+    pub fn expose(&mut self, ports:Vec<i32>)->&mut Self {
+        let mut all = vec!["EXPOSE".to_string()];
+        let mut port_strs: Vec<String> = ports.iter().map(|v|{v.to_string()}).collect();
+        all.append(&mut port_strs);
+
+        self.instructions.push(all);
+        self
+    }
+
     pub fn arg(&mut self, kv: &str) -> &mut Self {
         self.instructions
             .push(vec!["ARG".to_string(), kv.to_string()]);
@@ -116,6 +125,7 @@ mod tests {
 
         df.comment("Runtime image")
             .from("debian:buster-slim")
+            .expose(vec![9200,9300])
             .arg("APP_NAME=APP_NAME")
             .copy(&[
                 "--from=0",
