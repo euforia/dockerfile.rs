@@ -55,6 +55,7 @@ impl Dockerfile {
     pub fn add(&mut self, mut args: Vec<String>) -> &mut Self {
         let mut all = vec!["ADD".to_string()];
         all.append(&mut args);
+        
         self.instructions.push(all);
         self
     }
@@ -81,6 +82,7 @@ impl Dockerfile {
     pub fn entrypoint(&mut self, mut args: Vec<String>) -> &mut Self {
         let mut all = vec!["ENTRYPOINT".to_string()];
         all.append(&mut args);
+
         self.instructions.push(all);
         self
     }
