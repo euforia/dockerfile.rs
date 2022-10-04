@@ -1,4 +1,8 @@
-use std::{path::Path, fs::File, io::{self, BufRead}};
+use std::{
+    fs::File,
+    io::{self, BufRead},
+    path::Path,
+};
 
 // Convert vec![&str] to Vec<String>
 macro_rules! to_vec_strings {
@@ -9,7 +13,7 @@ macro_rules! to_vec_strings {
 
 #[derive(Debug)]
 pub struct Dockerfile {
-    instructions: Vec<Vec<String>>,
+    instructions: Vec<Vec<Vec<String>>>,
 }
 
 impl Dockerfile {
@@ -19,49 +23,63 @@ impl Dockerfile {
         }
     }
 
-    pub fn parse(filename: &Path)-> Self {
+    pub fn parse(filename: &Path) -> Self {
         let file = File::open(filename).unwrap();
         let lines = io::BufReader::new(file).lines();
 
         let mut dockerfile = Dockerfile::new();
-
         for raw_line in lines {
-            if let Ok(line) = raw_line{
-                if line == ""{
+            if let Ok(line) = raw_line {
+                if line == "" {
                     continue;
                 }
 
                 // We assume the dockerfile is syntactically good
-                let instruction:Vec<&str> = line.split(" ").collect();
-                dockerfile.instructions.push(to_vec_strings!(instruction));
+                let instruction: Vec<&str> = line.split(" ").collect();
+                dockerfile.append(instruction);
             }
         }
         dockerfile
     }
 
-    pub fn from(&mut self, image: &str) -> &mut Self {
-        self.instructions
-            .push(vec!["FROM".to_string(), image.to_string()]);
+    pub fn append(&mut self, args: Vec<&str>) -> &mut Self {
+        let instr: Vec<String> = to_vec_strings!(args);
+        if args[0] == "FROM" {
+            self.instructions.push(vec![instr])
+        } else {
+            let i = self.instructions.len() - 1;
+            self.instructions[i].push(instr)
+        }
         self
     }
 
-    pub fn expose(&mut self, ports:Vec<&str>)->&mut Self {
+    // This must be the first call
+    pub fn from(&mut self, image: &str) -> &mut Self {
+        self.instructions
+            .push(vec![vec!["FROM".to_string(), image.to_string()]]);
+        self
+    }
+
+    pub fn expose(&mut self, ports: Vec<&str>) -> &mut Self {
         let mut all = vec!["EXPOSE"];
         all.append(&mut ports.to_vec());
 
-        self.instructions.push(to_vec_strings!(all));
+        let row: Vec<String> = to_vec_strings!(all);
+        let i = self.instructions.len() - 1;
+
+        self.instructions[i].push(row);
         self
     }
 
     pub fn arg(&mut self, kv: &str) -> &mut Self {
-        self.instructions
-            .push(vec!["ARG".to_string(), kv.to_string()]);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(vec!["ARG".to_string(), kv.to_string()]);
         self
     }
 
     pub fn run(&mut self, args: &str) -> &mut Self {
-        self.instructions
-            .push(vec!["RUN".to_string(), args.to_string()]);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(vec!["RUN".to_string(), args.to_string()]);
         self
     }
 
@@ -69,26 +87,29 @@ impl Dockerfile {
         let mut all = vec!["COPY"];
         all.append(&mut args.to_vec());
 
-        self.instructions.push(to_vec_strings!(all));
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(to_vec_strings!(all));
         self
     }
 
     pub fn add(&mut self, mut args: Vec<String>) -> &mut Self {
         let mut all = vec!["ADD".to_string()];
         all.append(&mut args);
-        
-        self.instructions.push(all);
+
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(all);
         self
     }
 
     pub fn workdir(&mut self, s: &str) -> &mut Self {
-        self.instructions
-            .push(vec!["WORKDIR".to_string(), s.to_string()]);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(vec!["WORKDIR".to_string(), s.to_string()]);
         self
     }
+
     pub fn user(&mut self, name: &str) -> &mut Self {
-        self.instructions
-            .push(vec!["USER".to_string(), name.to_string()]);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(vec!["USER".to_string(), name.to_string()]);
         self
     }
 
@@ -96,7 +117,9 @@ impl Dockerfile {
         let mut all = vec!["CMD"];
         all.append(&mut args.to_vec());
 
-        self.instructions.push(to_vec_strings!(all));
+        let row: Vec<String> = to_vec_strings!(all);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(row);
         self
     }
 
@@ -104,24 +127,34 @@ impl Dockerfile {
         let mut all = vec!["ENTRYPOINT".to_string()];
         all.append(&mut args);
 
-        self.instructions.push(all);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(all);
         self
     }
 
     pub fn comment(&mut self, comment: &str) -> &mut Self {
-        self.instructions.push(vec!["\n# ".to_string() + comment]);
+        let i = self.instructions.len() - 1;
+        self.instructions[i].push(vec!["\n# ".to_string() + comment]);
         self
     }
 
-    // TODO: add a golang style "Writer" trait to write out the output
-    pub fn synth(&self) -> String {
-        let list: Vec<String> = self
-            .instructions
-            .iter()
-            .map(|instr| instr.join(" "))
-            .collect();
-        list.join("\n")
+    pub fn stages(&self) -> usize {
+        return self.instructions.len();
     }
+
+    pub fn stage(&self, i: usize) -> &Vec<Vec<String>> {
+        return &self.instructions[i];
+    }
+
+    // TODO: add a golang style "Writer" trait to write out the output
+    // pub fn synth(&self) -> String {
+    //     let list: Vec<String> = self
+    //         .instructions
+    //         .iter()
+    //         .map(|instr| instr.join(" "))
+    //         .collect();
+    //     list.join("\n")
+    // }
 }
 
 #[cfg(test)]
@@ -135,16 +168,16 @@ mod tests {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("test-Dockerfile");
 
-        let dockerfile =Dockerfile::parse(d.as_path());
+        let dockerfile = Dockerfile::parse(d.as_path());
         println!("{:?}", dockerfile.instructions);
-        assert!(dockerfile.instructions.len()==10);
+        assert!(dockerfile.stages() == 2);
     }
 
     #[test]
     fn test_dockerfile() {
         let mut df = Dockerfile::new();
-        df.comment("Build image")
-            .from("rust")
+        df.from("rust")
+            .comment("Build image")
             .arg("APP_NAME")
             .workdir("/usr/src/${APP_NAME}");
 
@@ -160,7 +193,7 @@ mod tests {
 
         df.comment("Runtime image")
             .from("debian:buster-slim")
-            .expose(vec!["9200","9300/tcp"])
+            .expose(vec!["9200", "9300/tcp"])
             .arg("APP_NAME=APP_NAME")
             .copy(&[
                 "--from=0",
@@ -169,6 +202,6 @@ mod tests {
             ])
             .cmd(&["${APP_NAME}"]);
 
-        println!("{:?}", df.synth());
+        assert_eq!(2, df.stages());
     }
 }
