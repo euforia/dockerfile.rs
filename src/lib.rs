@@ -44,12 +44,12 @@ impl Dockerfile {
 
     pub fn append(&mut self, args: Vec<&str>) -> &mut Self {
         let instr: Vec<String> = to_vec_strings!(args);
-
-        if self.instructions.len() == 0 {
-            self.instructions.push(vec![instr])
+        // Every time we see the FROM keyword we create a new stage
+        if args[0] == "FROM" {
+            self.instructions.push(vec![instr]);
         } else {
             let i = self.instructions.len() - 1;
-            self.instructions[i].push(instr)
+            self.instructions[i].push(instr);
         }
         self
     }
