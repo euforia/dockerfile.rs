@@ -44,7 +44,8 @@ impl Dockerfile {
 
     pub fn append(&mut self, args: Vec<&str>) -> &mut Self {
         let instr: Vec<String> = to_vec_strings!(args);
-        if args[0] == "FROM" {
+
+        if self.instructions.len() == 0 {
             self.instructions.push(vec![instr])
         } else {
             let i = self.instructions.len() - 1;
