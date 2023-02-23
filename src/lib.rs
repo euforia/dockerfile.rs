@@ -48,9 +48,17 @@ impl Dockerfile {
         if args[0] == "FROM" {
             self.instructions.push(vec![instr]);
         } else {
-            let i = self.instructions.len() - 1;
-            self.instructions[i].push(instr);
+            match self.instructions.len() {
+                0 => self.instructions.push(vec![instr]),
+                _ => {
+                    let i = self.instructions.len() - 1;
+                    self.instructions[i].push(instr);
+                }
+            };
+            // let i = self.instructions.len() - 1;
+            // self.instructions[i].push(instr);
         }
+
         self
     }
 
@@ -171,7 +179,8 @@ mod tests {
 
         let dockerfile = Dockerfile::parse(d.as_path());
         println!("{:?}", dockerfile.instructions);
-        assert!(dockerfile.stages() == 2);
+        // This is 3 due to the first line starting with a comment.
+        assert_eq!(3, dockerfile.stages());
     }
 
     #[test]

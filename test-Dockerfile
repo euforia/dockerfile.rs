@@ -1,4 +1,4 @@
-
+# First line comment
 FROM rust
 
 WORKDIR /usr/src/wuw
